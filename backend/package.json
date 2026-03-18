@@ -1,0 +1,8 @@
+{
+  "name": "pemsd7-backend",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.18.2",
+    "mongoose": "^7.6.3"
+  }
+}

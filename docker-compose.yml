@@ -1,0 +1,33 @@
+services:
+  mongo:
+    image: mongo:4.4
+    platform: linux/amd64
+    volumes:
+      - mongo_data:/data/db
+    networks: [net]
+    healthcheck:
+      test: ["CMD", "mongo", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    environment:
+      MONGO_URI: mongodb://mongo:27017/pemsd7
+    ports: ["3000:3000"]
+    depends_on:
+      mongo:
+        condition: service_healthy
+    networks: [net]
+
+  frontend:
+    build: ./frontend
+    ports: ["8080:80"]
+    depends_on: [backend]
+    networks: [net]
+
+volumes:
+  mongo_data:
+networks:
+  net:

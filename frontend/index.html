@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Sensor Map — PeMS D7</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg:      #0f1117;
+      --sidebar: #161b26;
+      --border:  rgba(255,255,255,0.07);
+      --text:    #e2e8f0;
+      --muted:   #64748b;
+      --accent:  #3b82f6;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      height: 100vh;
+      overflow: hidden;
+    }
+    #sidebar {
+      width: 260px;
+      flex-shrink: 0;
+      background: var(--sidebar);
+      border-right: 1px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      z-index: 10;
+    }
+    .sidebar-header {
+      padding: 22px 20px 16px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-header h1 { font-size: 16px; font-weight: 700; color: #fff; }
+    .sidebar-header p  { font-size: 12px; color: var(--muted); margin-top: 3px; }
+    .load-btn {
+      margin: 16px 20px 4px;
+      background: var(--accent);
+      color: #fff;
+      border: none;
+      padding: 10px 0;
+      border-radius: 8px;
+      font-size: 13px;
+      font-family: 'Inter', sans-serif;
+      font-weight: 600;
+      cursor: pointer;
+      width: calc(100% - 40px);
+      transition: background 0.2s, transform 0.15s;
+    }
+    .load-btn:hover { background: #2563eb; transform: translateY(-1px); }
+    .load-btn:disabled { background: #334155; cursor: not-allowed; transform: none; }
+    #sensor-count { margin: 8px 20px 14px; font-size: 12px; color: var(--muted); text-align: center; }
+    .filter-section { padding: 14px 20px; border-top: 1px solid var(--border); }
+    .filter-section h3 {
+      font-size: 11px; font-weight: 600; letter-spacing: 1px;
+      text-transform: uppercase; color: var(--muted); margin-bottom: 10px;
+    }
+    .filter-btn-group { display: flex; flex-direction: column; gap: 5px; }
+    .filter-btn {
+      display: flex; align-items: center; gap: 10px;
+      padding: 8px 10px; border-radius: 7px;
+      border: 1px solid transparent;
+      background: transparent; color: var(--text);
+      font-size: 13px; font-family: 'Inter', sans-serif;
+      cursor: pointer; transition: background 0.15s, border-color 0.15s;
+      text-align: left;
+    }
+    .filter-btn:hover { background: rgba(255,255,255,0.05); }
+    .filter-btn.active { background: rgba(59,130,246,0.12); border-color: rgba(59,130,246,0.3); }
+    .filter-btn .dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+    .filter-btn .count {
+      margin-left: auto; font-size: 11px; color: var(--muted);
+      background: rgba(255,255,255,0.07); padding: 1px 7px; border-radius: 10px;
+    }
+    .dir-badge {
+      width: 24px; height: 24px; border-radius: 6px;
+      background: rgba(255,255,255,0.08);
+      display: flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 700; color: #fff; flex-shrink: 0;
+    }
+    .reset-btn {
+      margin: 6px 20px 20px;
+      background: transparent; color: var(--muted);
+      border: 1px solid var(--border);
+      padding: 8px 0; border-radius: 8px;
+      font-size: 12px; font-family: 'Inter', sans-serif;
+      cursor: pointer; width: calc(100% - 40px);
+      transition: color 0.2s, border-color 0.2s;
+    }
+    .reset-btn:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
+    #map-wrapper { flex: 1; display: flex; flex-direction: column; position: relative; }
+    #map { flex: 1; width: 100%; }
+    .leaflet-popup-content-wrapper {
+      background: #1c2333; color: #e2e8f0;
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 10px; box-shadow: 0 8px 30px rgba(0,0,0,0.5);
+      font-family: 'Inter', sans-serif;
+    }
+    .leaflet-popup-tip { background: #1c2333; }
+    .leaflet-popup-close-button { color: #64748b !important; }
+    .popup-title { font-size: 14px; font-weight: 700; color: #fff; margin-bottom: 8px; }
+    .popup-row { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 4px; gap: 12px; }
+    .popup-row span:first-child { color: var(--muted); }
+    .popup-row span:last-child { font-weight: 500; }
+    .popup-fw-badge {
+      display: inline-block; padding: 2px 10px; border-radius: 20px;
+      font-size: 12px; font-weight: 700; margin-bottom: 10px;
+    }
+  </style>
+</head>
+<body>
+  <aside id="sidebar">
+    <div class="sidebar-header">
+      <h1>PeMS D7 Sensors</h1>
+      <p>Bay Area — California</p>
+    </div>
+    <button class="load-btn" id="loadBtn" onclick="fetchAndStore()">⟳ Charger les capteurs</button>
+    <div id="sensor-count">— capteurs chargés</div>
+    <div class="filter-section">
+      <h3>Freeway</h3>
+      <div class="filter-btn-group" id="freeway-filters"></div>
+    </div>
+    <div class="filter-section">
+      <h3>Direction</h3>
+      <div class="filter-btn-group" id="direction-filters"></div>
+    </div>
+    <button class="reset-btn" onclick="resetFilters()">✕ Réinitialiser les filtres</button>
+  </aside>
+  <div id="map-wrapper">
+    <div id="map"></div>
+  </div>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
